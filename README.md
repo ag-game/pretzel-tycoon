@@ -36,4 +36,4 @@ Please share issues and suggestions [here](https://code.rocketnine.space/tslocum
 ## Dependencies
 
 - [ebitengine](https://github.com/hajimehoshi/ebiten) - Game engine
-- [gohan](https://code.rocketnine.space/tslocum/gohan) - Entity Component System framework
+- [etk](https://code.rocketnine.space/tslocum/etk) - Graphical user interface toolkit

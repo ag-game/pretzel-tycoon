@@ -6,7 +6,8 @@ const (
 	DefaultScreenWidth  = 1280
 	DefaultScreenHeight = 720
 
-	InternalScreenWidth, InternalScreenHeight = 854, 480
+	InternalScreenWidth  = 320
+	InternalScreenHeight = 180
 
 	MaxDebug = 2
 )
@@ -14,7 +15,8 @@ const (
 var (
 	TPS = DefaultTPS
 
-	ScreenWidth, ScreenHeight int
+	ScreenWidth  int
+	ScreenHeight int
 
 	Fullscreen   bool
 	DisableVsync bool
