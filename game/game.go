@@ -1,6 +1,7 @@
 package game
 
 import (
+	"bytes"
 	"fmt"
 	"image"
 	"image/color"
@@ -18,9 +19,20 @@ import (
 	"golang.org/x/image/font/opentype"
 )
 
+type viewType int
+
+const (
+	viewTitle = iota
+	viewIntro1
+	viewFinancialReport
+)
+
 type Game struct {
 	inputBuffer *etk.Input
 	textBuffer  *dummyTextBuffer
+
+	currentView viewType
+	viewTicks   int
 }
 
 var addedGame bool
@@ -75,6 +87,7 @@ func NewGame() (*Game, error) {
 	g.textBuffer.Field.SetHorizontal(messeji.AlignStart)
 	g.textBuffer.Field.SetVertical(messeji.AlignStart)
 	g.textBuffer.Field.SetPadding(0)
+	g.textBuffer.Field.SetLineHeight(10)
 
 	// Create window input buffer and text buffer.
 	w := etk.NewWindow()
@@ -91,9 +104,66 @@ func (g *Game) Layout(_, _ int) (screenWidth, screenHeight int) {
 	if world.InternalScreenWidth != world.ScreenWidth || world.InternalScreenHeight != world.ScreenHeight {
 		world.ScreenWidth, world.ScreenHeight = world.InternalScreenWidth, world.InternalScreenHeight
 		etk.Layout(world.ScreenWidth, world.ScreenHeight)
-		g.textBuffer.SetRect(image.Rect(0, 3, world.ScreenWidth, world.ScreenHeight))
+		g.textBuffer.SetRect(image.Rect(0, 1, world.ScreenWidth, world.ScreenHeight))
 	}
 	return world.ScreenWidth, world.ScreenHeight
+}
+
+func (g *Game) refreshBuffer() error {
+	// TODO only do this when the view buffer or input buffer changes
+
+	currentDay := 1
+
+	pretzelsSold := 50
+	pretzelPrice := "$.10"
+	totalIncome := "$5.00"
+
+	pretzelsMade := 50
+	signsMade := 3
+	totalExpenses := "$1.45"
+
+	profit := "$3.55"
+	assets := "$6.60"
+
+	viewBytes := viewText[g.currentView]
+	writeLines := g.viewTicks - 1
+
+	// Append start screen text.
+	if g.currentView == viewTitle && g.viewTicks%200 < 150 {
+		viewBytes = append(viewBytes, bytes.TrimRight(centeredText("PRESS SPACE TO START"), "\n")...)
+	}
+
+	// Format view.
+	var lines [][]byte
+	switch g.currentView {
+	case viewTitle, viewIntro1:
+		lines = bytes.Split(viewBytes, []byte("\n"))
+	case viewFinancialReport:
+		viewBytes = []byte(fmt.Sprintf(string(viewBytes), currentDay, pretzelsSold, pretzelPrice, totalIncome, pretzelsMade, signsMade, totalExpenses, profit, assets))
+		lines = bytes.Split(viewBytes, []byte("\n"))
+	}
+
+	g.textBuffer.Clear()
+	if writeLines <= 0 {
+		return nil
+	} else if writeLines >= len(lines) {
+		g.textBuffer.Write(viewBytes)
+		return nil
+	}
+	wrote := 0
+	for i := 0; i < len(lines); i++ {
+		if i != 0 {
+			g.textBuffer.Write([]byte("\n"))
+		}
+		if len(lines[i]) == 0 {
+			continue
+		} else if wrote == writeLines {
+			return nil
+		}
+		g.textBuffer.Write(lines[i])
+		wrote++
+	}
+	return nil
 }
 
 func (g *Game) Update() error {
@@ -123,36 +193,28 @@ func (g *Game) Update() error {
 		log.Fatal(err)
 	}
 
-	// TODO only do this when the view buffer or input buffer changes
-
-	pretzelsSold := 50
-	pretzelPrice := "$.10"
-	totalIncome := "$5.00"
-
-	pretzelsMade := 50
-	signsMade := 3
-	totalExpenses := "$1.45"
-
-	profit := "$3.55"
-	assets := "$6.60"
-
-	g.textBuffer.Clear()
-	g.textBuffer.Write([]byte(fmt.Sprintf(viewFinancialReport, pretzelsSold, pretzelPrice, totalIncome, pretzelsMade, signsMade, totalExpenses, profit, assets)))
-
-	g.textBuffer.Clear()
-	for i := 0; i < 22; i++ {
-		if i != 0 {
-			g.textBuffer.Write([]byte("\n"))
+	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
+		g.currentView++
+		if g.currentView > viewFinancialReport {
+			g.currentView = viewTitle
 		}
-		g.textBuffer.Write([]byte(fmt.Sprintf("%d", i)))
+		g.viewTicks = 0
 	}
+
+	err = g.refreshBuffer()
+	if err != nil {
+		return err
+	}
+
+	g.viewTicks++
 	// TODO fix trailing newline causing scroll bar to appear
+
+	//g.textBuffer.Clear()
+	//g.textBuffer.Write([]byte(viewIntro1))
 	return nil
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	//screen.cl
-
 	// Draw the text buffer over the hidden input buffer.
 	g.textBuffer.Draw(screen)
 

@@ -16,11 +16,13 @@ func main() {
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetWindowSize(world.DefaultScreenWidth, world.DefaultScreenHeight)
 	ebiten.SetWindowClosingHandled(true)
+	ebiten.SetCursorMode(ebiten.CursorModeHidden)
 	ebiten.SetRunnableOnUnfocused(true)
+	ebiten.SetTPS(world.DefaultTPS)
+	ebiten.SetScreenClearedEveryFrame(false)
 
 	parseFlags()
 
-	ebiten.SetTPS(world.TPS)
 	ebiten.SetFullscreen(world.Fullscreen)
 	ebiten.SetVsyncEnabled(!world.DisableVsync)
 

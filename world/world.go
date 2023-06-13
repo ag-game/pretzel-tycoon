@@ -1,7 +1,7 @@
 package world
 
 const (
-	DefaultTPS = 60
+	DefaultTPS = 100
 
 	DefaultScreenWidth  = 1280
 	DefaultScreenHeight = 720
@@ -13,8 +13,6 @@ const (
 )
 
 var (
-	TPS = DefaultTPS
-
 	ScreenWidth  int
 	ScreenHeight int
 
