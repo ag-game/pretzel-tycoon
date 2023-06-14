@@ -7,6 +7,8 @@ import (
 	"image/color"
 	"log"
 	"os"
+	"regexp"
+	"strconv"
 
 	"code.rocketnine.space/tslocum/etk"
 	"code.rocketnine.space/tslocum/messeji"
@@ -24,8 +26,14 @@ type viewType int
 const (
 	viewTitle = iota
 	viewIntro1
+	viewStartDayProduction1
+	viewStartDayProduction2
+	viewStartDayProduction3
+	viewStartDaySupplies
 	viewFinancialReport
 )
+
+var matchNumbers = regexp.MustCompile("^[0-9]+$")
 
 type Game struct {
 	inputBuffer *etk.Input
@@ -33,6 +41,15 @@ type Game struct {
 
 	currentView viewType
 	viewTicks   int
+
+	day int
+
+	inputLetters bool // Whether to allow the user to input letters.
+
+	makePretzels int // In dozens.
+	makeSigns    int
+
+	pretzelPrice int // In cents.
 }
 
 var addedGame bool
@@ -74,13 +91,11 @@ func NewGame() (*Game, error) {
 	etk.Style.TextFont = loadFont()
 
 	g := &Game{
-		inputBuffer: etk.NewInput("", "", func(text string) (handled bool) {
-			log.Println("selected", text)
-			return true
-		}),
-		textBuffer: &dummyTextBuffer{
-			Text: etk.NewText("Hello world!"),
-		},
+		day: 1,
+	}
+	g.inputBuffer = etk.NewInput("", "", g.acceptInput)
+	g.textBuffer = &dummyTextBuffer{
+		Text: etk.NewText("Hello world!"),
 	}
 
 	// Configure text buffer.
@@ -109,10 +124,43 @@ func (g *Game) Layout(_, _ int) (screenWidth, screenHeight int) {
 	return world.ScreenWidth, world.ScreenHeight
 }
 
+func (g *Game) inputActive() bool {
+	return g.currentView == viewStartDayProduction1 || g.currentView == viewStartDayProduction2 || g.currentView == viewStartDayProduction3
+}
+
+func (g *Game) acceptInput(text string) (handled bool) {
+	log.Println("selected", text)
+
+	i, err := strconv.Atoi(text)
+	if err != nil {
+		log.Println(err) // TODO this shouldnt happen
+		return false
+	}
+
+	switch g.currentView {
+	case viewStartDayProduction1:
+		g.makePretzels = i
+	case viewStartDayProduction2:
+		g.makeSigns = i
+	case viewStartDayProduction3:
+		g.pretzelPrice = i
+	}
+
+	g.currentView++
+	partialTransition := g.currentView == viewStartDayProduction2 || g.currentView == viewStartDayProduction3
+	if partialTransition {
+		viewBytes := viewText[g.currentView-1]
+		lines := bytes.Split(viewBytes, []byte("\n"))
+		g.viewTicks = len(lines) - 2
+	} else {
+		g.viewTicks = 0
+	}
+	return true
+}
+
 func (g *Game) refreshBuffer() error {
 	// TODO only do this when the view buffer or input buffer changes
-
-	currentDay := 1
+	// TODO fix trailing newline causing scroll bar to appear
 
 	pretzelsSold := 50
 	pretzelPrice := "$.10"
@@ -133,13 +181,35 @@ func (g *Game) refreshBuffer() error {
 		viewBytes = append(viewBytes, bytes.TrimRight(centeredText("PRESS SPACE TO START"), "\n")...)
 	}
 
+	// Append user input.
+	if g.inputActive() {
+		viewBytes = append(viewBytes, g.inputBuffer.Text()...)
+
+		// Append cursor icon.
+		if g.viewTicks%150 < 100 {
+			viewBytes = append(viewBytes, '|')
+		}
+	}
+
 	// Format view.
 	var lines [][]byte
 	switch g.currentView {
-	case viewTitle, viewIntro1:
+	case viewStartDayProduction1:
+		viewBytes = []byte(fmt.Sprintf(string(viewBytes), g.day))
+		lines = bytes.Split(viewBytes, []byte("\n"))
+	case viewStartDayProduction2:
+		viewBytes = []byte(fmt.Sprintf(string(viewBytes), g.day, g.makePretzels))
+		lines = bytes.Split(viewBytes, []byte("\n"))
+	case viewStartDayProduction3:
+		viewBytes = []byte(fmt.Sprintf(string(viewBytes), g.day, g.makePretzels, g.makeSigns))
+		lines = bytes.Split(viewBytes, []byte("\n"))
+	case viewStartDaySupplies:
+		viewBytes = []byte(fmt.Sprintf(string(viewBytes), g.day))
 		lines = bytes.Split(viewBytes, []byte("\n"))
 	case viewFinancialReport:
-		viewBytes = []byte(fmt.Sprintf(string(viewBytes), currentDay, pretzelsSold, pretzelPrice, totalIncome, pretzelsMade, signsMade, totalExpenses, profit, assets))
+		viewBytes = []byte(fmt.Sprintf(string(viewBytes), g.day, pretzelsSold, pretzelPrice, totalIncome, pretzelsMade, signsMade, totalExpenses, profit, assets))
+		lines = bytes.Split(viewBytes, []byte("\n"))
+	default:
 		lines = bytes.Split(viewBytes, []byte("\n"))
 	}
 
@@ -188,12 +258,24 @@ func (g *Game) Update() error {
 	}
 
 	// Handle user input.
-	err := etk.Update()
-	if err != nil {
-		log.Fatal(err)
-	}
+	if g.inputActive() {
+		err := etk.Update()
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
+		inputText := g.inputBuffer.Text()
+		if len(inputText) > 0 && !g.inputLetters && !matchNumbers.MatchString(inputText) {
+			var newInput string
+			for _, r := range inputText {
+				if matchNumbers.MatchString(string(r)) {
+					newInput += string(r)
+				}
+			}
+			g.inputBuffer.Clear()
+			g.inputBuffer.Write([]byte(newInput))
+		}
+	} else if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
 		g.currentView++
 		if g.currentView > viewFinancialReport {
 			g.currentView = viewTitle
@@ -201,21 +283,16 @@ func (g *Game) Update() error {
 		g.viewTicks = 0
 	}
 
-	err = g.refreshBuffer()
+	err := g.refreshBuffer()
 	if err != nil {
 		return err
 	}
 
 	g.viewTicks++
-	// TODO fix trailing newline causing scroll bar to appear
-
-	//g.textBuffer.Clear()
-	//g.textBuffer.Write([]byte(viewIntro1))
 	return nil
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	// Draw the text buffer over the hidden input buffer.
 	g.textBuffer.Draw(screen)
 
 	if world.Debug != 0 {

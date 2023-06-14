@@ -5,6 +5,7 @@ package main
 
 import (
 	"code.rocketnine.space/tslocum/pretzel-tycoon/world"
+	"github.com/hajimehoshi/ebiten/v2"
 )
 
 func parseFlags() {

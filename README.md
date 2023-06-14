@@ -2,7 +2,11 @@
 [![Donate via LiberaPay](https://img.shields.io/liberapay/receives/rocketnine.space.svg?logo=liberapay)](https://liberapay.com/rocketnine.space)
 [![Donate via Patreon](https://img.shields.io/badge/dynamic/json?color=%23e85b46&label=Patreon&query=data.attributes.patron_count&suffix=%20patrons&url=https%3A%2F%2Fwww.patreon.com%2Fapi%2Fcampaigns%2F5252223)](https://www.patreon.com/rocketnine)
 
-This game was created for the [Fuck Capitalism Jam 2023](https://itch.io/jam/fuck-capitalism-jam-2023).
+This game was created for the [Fuck Capitalism Jam 2023](https://itch.io/jam/fuck-capitalism-jam-2023)
+game jam.
+
+It is a parody of the 1973 business simulation game [Lemonade Stand](https://en.wikipedia.org/wiki/Lemonade_Stand)
+by Bob Jamison.
 
 **Note:** This game has not yet been released. The following links are placeholders. 
 

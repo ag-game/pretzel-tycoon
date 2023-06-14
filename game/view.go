@@ -46,6 +46,50 @@ YOU WILL BEGIN WITH $4.20 CASH (ASSETS).
 
 ` + string(bytes.TrimRight(centeredText("PRESS SPACE TO CONTINUE..."), "\n"))),
 
+	// viewStartDayProduction1
+	[]byte(`                 DAY %d
+
+STARTING SUPPLIES
+
+PRODUCTION AMOUNTS
+
+HOW MANY BATCHES (DOZENS) OF PRETZELS
+DO YOU WISH TO MAKE ?`),
+
+	// viewStartDayProduction2
+	[]byte(`                 DAY %d
+
+STARTING SUPPLIES
+
+PRODUCTION AMOUNTS
+
+HOW MANY BATCHES (DOZENS) OF PRETZELS
+DO YOU WISH TO MAKE ?%d
+
+HOW MANY ADVERTISING SIGNS ($1.25 EACH)
+DO YOU WISH TO MAKE ?`),
+
+	// viewStartDayProduction3
+	[]byte(`                 DAY %d
+
+STARTING SUPPLIES
+
+PRODUCTION AMOUNTS
+
+HOW MANY BATCHES (DOZENS) OF PRETZELS
+DO YOU WISH TO MAKE ?%d
+
+HOW MANY ADVERTISING SIGNS ($1.25 EACH)
+DO YOU WISH TO MAKE ?%d
+
+WHAT PRICE (IN CENTS) DO YOU WISH TO
+CHARGE FOR PRETZELS ?`),
+
+	// viewStartDaySupplies
+	[]byte(`                 DAY %d
+
+TODO`),
+
 	// viewFinancialReport
 	[]byte(` $$  PRETZELSVILLE FINANCIAL REPORT  $$
 

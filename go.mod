@@ -6,7 +6,7 @@ require (
 	code.rocketnine.space/tslocum/etk v0.0.0-20230608043113-585e23b06fff
 	code.rocketnine.space/tslocum/messeji v1.0.3
 	github.com/hajimehoshi/ebiten/v2 v2.5.4
-	golang.org/x/image v0.7.0
+	golang.org/x/image v0.8.0
 )
 
 require (
