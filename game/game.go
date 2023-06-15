@@ -30,6 +30,7 @@ const (
 	viewStartDayProduction2
 	viewStartDayProduction3
 	viewStartDaySupplies
+	viewDay
 	viewFinancialReport
 )
 
@@ -42,14 +43,19 @@ type Game struct {
 	currentView viewType
 	viewTicks   int
 
+	dayBuffer [][]byte
+
 	day int
 
 	inputLetters bool // Whether to allow the user to input letters.
 
-	makePretzels int // In dozens.
-	makeSigns    int
+	makePretzels     int // In dozens.
+	makePretzelsLast int
+	makeSigns        int
+	makeSignsLast    int
 
-	pretzelPrice int // In cents.
+	pretzelPrice     int // In cents.
+	pretzelPriceLast int
 }
 
 var addedGame bool
@@ -91,11 +97,22 @@ func NewGame() (*Game, error) {
 	etk.Style.TextFont = loadFont()
 
 	g := &Game{
-		day: 1,
+		day:              1,
+		makePretzels:     -1,
+		makePretzelsLast: -1,
+		makeSigns:        -1,
+		makeSignsLast:    -1,
+		pretzelPrice:     -1,
+		pretzelPriceLast: -1,
+		dayBuffer:        make([][]byte, 18),
 	}
 	g.inputBuffer = etk.NewInput("", "", g.acceptInput)
 	g.textBuffer = &dummyTextBuffer{
 		Text: etk.NewText("Hello world!"),
+	}
+
+	for i := range g.dayBuffer {
+		g.dayBuffer[i] = make([]byte, 40)
 	}
 
 	// Configure text buffer.
@@ -125,25 +142,50 @@ func (g *Game) Layout(_, _ int) (screenWidth, screenHeight int) {
 }
 
 func (g *Game) inputActive() bool {
-	return g.currentView == viewStartDayProduction1 || g.currentView == viewStartDayProduction2 || g.currentView == viewStartDayProduction3
+	switch g.currentView {
+	case viewStartDayProduction1:
+		return g.makePretzels == -1
+	case viewStartDayProduction2:
+		return g.makeSigns == -1
+	case viewStartDayProduction3:
+		return g.pretzelPrice == -1
+	}
+	return false
 }
 
 func (g *Game) acceptInput(text string) (handled bool) {
-	log.Println("selected", text)
-
-	i, err := strconv.Atoi(text)
-	if err != nil {
-		log.Println(err) // TODO this shouldnt happen
-		return false
-	}
-
-	switch g.currentView {
-	case viewStartDayProduction1:
-		g.makePretzels = i
-	case viewStartDayProduction2:
-		g.makeSigns = i
-	case viewStartDayProduction3:
-		g.pretzelPrice = i
+	if text == "" {
+		switch g.currentView {
+		case viewStartDayProduction1:
+			if g.makePretzelsLast == -1 {
+				return false
+			}
+			g.makePretzels = g.makePretzelsLast
+		case viewStartDayProduction2:
+			if g.makeSignsLast == -1 {
+				return false
+			}
+			g.makeSigns = g.makeSignsLast
+		case viewStartDayProduction3:
+			if g.pretzelPriceLast == -1 {
+				return false
+			}
+			g.pretzelPrice = g.pretzelPriceLast
+		}
+	} else {
+		// TODO handle non-numeric input
+		i, err := strconv.Atoi(text)
+		if err != nil {
+			return false
+		}
+		switch g.currentView {
+		case viewStartDayProduction1:
+			g.makePretzels = i
+		case viewStartDayProduction2:
+			g.makeSigns = i
+		case viewStartDayProduction3:
+			g.pretzelPrice = i
+		}
 	}
 
 	g.currentView++
@@ -151,16 +193,48 @@ func (g *Game) acceptInput(text string) (handled bool) {
 	if partialTransition {
 		viewBytes := viewText[g.currentView-1]
 		lines := bytes.Split(viewBytes, []byte("\n"))
-		g.viewTicks = len(lines) - 2
+		g.viewTicks = len(lines) - 4
 	} else {
 		g.viewTicks = 0
 	}
+	g.refreshBuffer()
 	return true
+}
+
+func (g *Game) setDayCell(x int, y int, c byte) error {
+	g.dayBuffer[y][x] = c
+	return nil
+}
+
+func (g *Game) drawDay() error {
+	for y := range g.dayBuffer {
+		for x := range g.dayBuffer[y] {
+			g.dayBuffer[y][x] = ' '
+		}
+	}
+	for i := 32; i < 150; i++ {
+		y := i / 40
+		x := i % 40
+		g.setDayCell(x, y, byte(i))
+	}
+	g.setDayCell(2, 17, 'z')
+	g.textBuffer.Clear()
+	for y := range g.dayBuffer {
+		if y != 0 {
+			g.textBuffer.Write([]byte("\n"))
+		}
+		g.textBuffer.Write(g.dayBuffer[y])
+	}
+	return nil
 }
 
 func (g *Game) refreshBuffer() error {
 	// TODO only do this when the view buffer or input buffer changes
 	// TODO fix trailing newline causing scroll bar to appear
+
+	if g.currentView == viewDay {
+		return g.drawDay()
+	}
 
 	pretzelsSold := 50
 	pretzelPrice := "$.10"
@@ -174,11 +248,11 @@ func (g *Game) refreshBuffer() error {
 	assets := "$6.60"
 
 	viewBytes := viewText[g.currentView]
-	writeLines := g.viewTicks - 1
+	writeLines := g.viewTicks + 1
 
 	// Append start screen text.
 	if g.currentView == viewTitle && g.viewTicks%200 < 150 {
-		viewBytes = append(viewBytes, bytes.TrimRight(centeredText("PRESS SPACE TO START"), "\n")...)
+		viewBytes = append(viewBytes, bytes.TrimRight(centeredText("PRESS ENTER TO START"), "\n")...)
 	}
 
 	// Append user input.
@@ -236,6 +310,18 @@ func (g *Game) refreshBuffer() error {
 	return nil
 }
 
+func (g *Game) resetDay() error {
+	g.makePretzelsLast = g.makePretzels
+	g.makePretzels = -1
+
+	g.makeSignsLast = g.makeSigns
+	g.makeSigns = -1
+
+	g.pretzelPriceLast = g.pretzelPrice
+	g.pretzelPrice = -1
+	return nil
+}
+
 func (g *Game) Update() error {
 	if ebiten.IsWindowBeingClosed() || (!world.WASM && ebiten.IsKeyPressed(ebiten.KeyEscape)) {
 		g.Exit()
@@ -275,10 +361,12 @@ func (g *Game) Update() error {
 			g.inputBuffer.Clear()
 			g.inputBuffer.Write([]byte(newInput))
 		}
-	} else if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
-		g.currentView++
-		if g.currentView > viewFinancialReport {
-			g.currentView = viewTitle
+	} else if inpututil.IsKeyJustPressed(ebiten.KeySpace) || inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeyKPEnter) {
+		if g.currentView == viewFinancialReport {
+			g.resetDay()
+			g.currentView = viewStartDayProduction1
+		} else {
+			g.currentView++
 		}
 		g.viewTicks = 0
 	}

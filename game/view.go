@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// Note: Screen fits 40x19 characters.
+// Note: Screen fits 40x18 characters.
 
 var viewText = [][]byte{
 	// viewTitle
@@ -44,7 +44,7 @@ TO MAKE THESE DECISIONS EVERY DAY:
 
 YOU WILL BEGIN WITH $4.20 CASH (ASSETS).
 
-` + string(bytes.TrimRight(centeredText("PRESS SPACE TO CONTINUE..."), "\n"))),
+` + string(bytes.TrimRight(centeredText("PRESS ENTER TO CONTINUE..."), "\n"))),
 
 	// viewStartDayProduction1
 	[]byte(`                 DAY %d
@@ -90,6 +90,9 @@ CHARGE FOR PRETZELS ?`),
 
 TODO`),
 
+	// viewDay
+	nil,
+
 	// viewFinancialReport
 	[]byte(` $$  PRETZELSVILLE FINANCIAL REPORT  $$
 
@@ -108,7 +111,7 @@ TODO`),
 
               ASSETS %s
 
-` + string(bytes.TrimRight(centeredText("PRESS SPACE TO CONTINUE..."), "\n"))),
+` + string(bytes.TrimRight(centeredText("PRESS ENTER TO CONTINUE..."), "\n"))),
 }
 
 func centeredText(text string) []byte {
