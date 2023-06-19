@@ -12,10 +12,24 @@ const (
 	MaxDebug = 2
 )
 
+type ViewType int
+
+const (
+	ViewTitle = iota
+	ViewIntro1
+	ViewStartDayProduction1
+	ViewStartDayProduction2
+	ViewStartDayProduction3
+	ViewStartDaySupplies
+	ViewDay
+	ViewFinancialReport
+)
+
 var (
 	ScreenWidth  int
 	ScreenHeight int
 
+	StartingView ViewType
 	Fullscreen   bool
 	DisableVsync bool
 
