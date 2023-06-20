@@ -14,30 +14,24 @@ type SimulationActor struct {
 }
 
 type Simulation struct {
-	Money  int
-	Actors []*SimulationActor
+	Money            int
+	Actors           []*SimulationActor
+	DayFinished      bool
+	DayFinishedTicks int
 }
 
 func (s *Simulation) generateActors() {
 	for i := 0; i < 7; i++ {
-		x := -1
-		tx := 41
-		if rand.Intn(2) == 0 {
-			x = 41
-			tx = -1
-		}
-		y := -1
-		ty := 18
-		if rand.Intn(2) == 0 {
-			y = 18
-			ty = -1
-		}
+		x := -2 + rand.Intn(40)
+		tx := 44 - x
+		y := 18
+		ty := 18 + rand.Intn(15)
 		a := &SimulationActor{
 			X:         x,
 			Y:         y,
 			TargetX:   tx,
 			TargetY:   ty,
-			WalkTicks: 20 + rand.Intn(30),
+			WalkTicks: 10 + rand.Intn(30),
 			WaitTicks: rand.Intn(500),
 		}
 		s.Actors = append(s.Actors, a)
@@ -45,18 +39,27 @@ func (s *Simulation) generateActors() {
 }
 
 func (s *Simulation) StartDay() {
-	s.Actors = s.Actors[:]
+	s.Actors = s.Actors[:0]
+	s.DayFinished = false
+	s.DayFinishedTicks = 25
+
 	s.generateActors()
 }
 
 func (s *Simulation) Tick() error {
-	standX, standY := 19, 9
+	if s.DayFinished {
+		return nil
+	}
 
+	standX, standY := 19, 10
+
+	var active int
 	var tx, ty int
 	for _, a := range s.Actors {
 		if a.Inactive {
 			continue
 		}
+		active++
 
 		if a.WaitTicks > 0 {
 			a.WaitTicks--
@@ -68,7 +71,6 @@ func (s *Simulation) Tick() error {
 		} else {
 			tx, ty = standX, standY
 		}
-
 		if a.X < tx {
 			a.X++
 		} else if a.X > tx {
@@ -80,10 +82,15 @@ func (s *Simulation) Tick() error {
 			a.Y--
 		}
 
+		if a.TargetActive && (a.X < -2 || a.X > 40 || a.Y > 17) {
+			a.Inactive = true
+			continue
+		}
+
 		if a.X == tx && a.Y == ty {
 			if !a.TargetActive {
 				a.TargetActive = true
-				a.WaitTicks = 100 + rand.Intn(200)
+				a.WaitTicks = 100 + rand.Intn(150)
 				continue
 			} else {
 				a.Inactive = true
@@ -91,6 +98,12 @@ func (s *Simulation) Tick() error {
 			}
 		}
 		a.WaitTicks = a.WalkTicks
+	}
+	if active == 0 {
+		s.DayFinishedTicks--
+		if s.DayFinishedTicks == 0 {
+			s.DayFinished = true
+		}
 	}
 	return nil
 }

@@ -85,11 +85,6 @@ DO YOU WISH TO MAKE ?%d
 WHAT PRICE (IN CENTS) DO YOU WISH TO
 CHARGE FOR PRETZELS ?`),
 
-	// viewStartDaySupplies
-	[]byte(`                 DAY %d
-
-TODO`),
-
 	// viewDay
 	nil,
 

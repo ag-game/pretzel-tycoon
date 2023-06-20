@@ -20,7 +20,6 @@ const (
 	ViewStartDayProduction1
 	ViewStartDayProduction2
 	ViewStartDayProduction3
-	ViewStartDaySupplies
 	ViewDay
 	ViewFinancialReport
 )

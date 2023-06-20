@@ -6,9 +6,11 @@ import (
 	"image"
 	"image/color"
 	"log"
+	"math/rand"
 	"os"
 	"regexp"
 	"strconv"
+	"time"
 
 	"code.rocketnine.space/tslocum/etk"
 	"code.rocketnine.space/tslocum/messeji"
@@ -25,7 +27,7 @@ var matchNumbers = regexp.MustCompile("^[0-9]+$")
 
 type Game struct {
 	inputBuffer *etk.Input
-	textBuffer  *dummyTextBuffer
+	textBuffer  *etk.Text
 
 	currentView world.ViewType
 	viewTicks   int
@@ -47,8 +49,6 @@ type Game struct {
 	simulation *Simulation
 }
 
-var addedGame bool
-
 func loadFont() font.Face {
 	tt, err := opentype.Parse(fonts.PressStart2P_ttf)
 	if err != nil {
@@ -66,21 +66,12 @@ func loadFont() font.Face {
 	return face
 }
 
-type dummyTextBuffer struct {
-	*etk.Text
-}
-
-func (t *dummyTextBuffer) HandleMouse(cursor image.Point, pressed bool, clicked bool) (handled bool, err error) {
-	return false, nil
-}
-
-func (t *dummyTextBuffer) HandleKeyboard() (handled bool, err error) {
-	return false, nil
-}
-
 func NewGame() (*Game, error) {
+	rand.Seed(time.Now().UnixNano())
+
 	etk.Style.TextColorLight = color.RGBA{255, 255, 255, 255}
 	etk.Style.TextColorDark = color.RGBA{255, 255, 255, 255}
+	etk.Style.InputBgColor = color.RGBA{0, 0, 0, 255}
 	etk.Style.InputBgColor = color.RGBA{0, 0, 0, 255}
 	etk.Style.TextBgColor = color.RGBA{0, 0, 0, 255}
 	etk.Style.TextFont = loadFont()
@@ -98,9 +89,7 @@ func NewGame() (*Game, error) {
 		simulation:       &Simulation{},
 	}
 	g.inputBuffer = etk.NewInput("", "", g.acceptInput)
-	g.textBuffer = &dummyTextBuffer{
-		Text: etk.NewText("Hello world!"),
-	}
+	g.textBuffer = etk.NewText("Hello world!")
 
 	for i := range g.dayBuffer {
 		g.dayBuffer[i] = make([]byte, 40)
@@ -118,9 +107,6 @@ func NewGame() (*Game, error) {
 	w.AddChild(g.textBuffer)
 
 	etk.SetRoot(w)
-
-	// TODO remove
-	g.simulation.StartDay()
 
 	return g, nil
 }
@@ -191,6 +177,12 @@ func (g *Game) acceptInput(text string) (handled bool) {
 	} else {
 		g.viewTicks = 0
 	}
+
+	log.Println(g.currentView)
+	if g.currentView == world.ViewDay {
+		g.simulation.StartDay()
+	}
+
 	g.refreshBuffer()
 	return true
 }
@@ -306,9 +298,6 @@ func (g *Game) refreshBuffer() error {
 	case world.ViewStartDayProduction3:
 		viewBytes = []byte(fmt.Sprintf(string(viewBytes), g.day, g.makePretzels, g.makeSigns))
 		lines = bytes.Split(viewBytes, []byte("\n"))
-	case world.ViewStartDaySupplies:
-		viewBytes = []byte(fmt.Sprintf(string(viewBytes), g.day))
-		lines = bytes.Split(viewBytes, []byte("\n"))
 	case world.ViewFinancialReport:
 		viewBytes = []byte(fmt.Sprintf(string(viewBytes), g.day, pretzelsSold, pretzelPrice, totalIncome, pretzelsMade, signsMade, totalExpenses, profit, assets))
 		lines = bytes.Split(viewBytes, []byte("\n"))
@@ -390,7 +379,7 @@ func (g *Game) Update() error {
 			g.inputBuffer.Clear()
 			g.inputBuffer.Write([]byte(newInput))
 		}
-	} else if inpututil.IsKeyJustPressed(ebiten.KeySpace) || inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeyKPEnter) {
+	} else if inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeyKPEnter) || (g.currentView != world.ViewDay && inpututil.IsKeyJustPressed(ebiten.KeySpace)) {
 		if g.currentView == world.ViewFinancialReport {
 			g.resetDay()
 			g.currentView = world.ViewStartDayProduction1
@@ -400,12 +389,25 @@ func (g *Game) Update() error {
 		g.viewTicks = 0
 	}
 
-	err := g.simulation.Tick()
-	if err != nil {
-		return err
+	if g.currentView == world.ViewDay {
+		numTicks := 1
+		if ebiten.IsKeyPressed(ebiten.KeySpace) {
+			numTicks = 4
+		}
+		for i := 0; i < numTicks; i++ {
+			err := g.simulation.Tick()
+			if err != nil {
+				return err
+			}
+		}
+
+		if g.simulation.DayFinished {
+			g.currentView++
+			g.viewTicks = 0
+		}
 	}
 
-	err = g.refreshBuffer()
+	err := g.refreshBuffer()
 	if err != nil {
 		return err
 	}
