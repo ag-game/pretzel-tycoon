@@ -8,8 +8,6 @@ game jam.
 It is a parody of the 1973 business simulation game [Lemonade Stand](https://en.wikipedia.org/wiki/Lemonade_Stand)
 by Bob Jamison.
 
-**Note:** This game has not yet been released. The following links are placeholders. 
-
 ## Play
 
 ### Browser

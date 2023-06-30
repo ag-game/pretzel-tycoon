@@ -1,0 +1,29 @@
+project_name: pretzel-tycoon
+
+builds:
+  -
+    id: pretzel-tycoon
+    goos:
+      - js
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - wasm
+archives:
+  -
+    id: pretzel-tycoon
+    builds:
+      - pretzel-tycoon
+    replacements:
+      386: i386
+    format_overrides:
+      - goos: js
+        format: zip
+      - goos: windows
+        format: zip
+    files:
+      - ./*.md
+      - LICENSE
+checksum:
+  name_template: 'checksums.txt'

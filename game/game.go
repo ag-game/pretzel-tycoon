@@ -37,6 +37,8 @@ type Game struct {
 	inputLetters bool // Whether to allow the user to input letters.
 
 	sim *Simulation
+
+	gameOver bool
 }
 
 func loadFont() font.Face {
@@ -115,14 +117,13 @@ func (g *Game) inputActive() bool {
 
 func (g *Game) acceptInput(text string) (handled bool) {
 	if text == "" {
-		log.Println("blank", g.currentView)
 		switch g.currentView {
 		case world.ViewStartDayProduction1:
-			if g.sim.MakePretzels == -1 {
+			if g.sim.MakePretzels == -1 || g.sim.MakePretzels*PretzelCost > g.sim.Money {
 				return false
 			}
 		case world.ViewStartDayProduction2:
-			if g.sim.MakeSigns == -1 {
+			if g.sim.MakeSigns == -1 || g.sim.MakeSigns*SignCost > (g.sim.Money-(g.sim.MakePretzels*PretzelCost)) {
 				return false
 			}
 		case world.ViewStartDayProduction3:
@@ -138,15 +139,19 @@ func (g *Game) acceptInput(text string) (handled bool) {
 		}
 		switch g.currentView {
 		case world.ViewStartDayProduction1:
+			if i < 1 || i*PretzelCost > g.sim.Money {
+				return false
+			}
 			g.sim.MakePretzels = i
 		case world.ViewStartDayProduction2:
+			if i*SignCost > (g.sim.Money - (g.sim.MakePretzels * PretzelCost)) {
+				return false
+			}
 			g.sim.MakeSigns = i
 		case world.ViewStartDayProduction3:
 			g.sim.PretzelPrice = i
 		}
 	}
-
-	log.Println("accept input:" + text)
 
 	g.currentView++
 	partialTransition := g.currentView == world.ViewStartDayProduction2 || g.currentView == world.ViewStartDayProduction3
@@ -158,9 +163,7 @@ func (g *Game) acceptInput(text string) (handled bool) {
 		g.viewTicks = 0
 	}
 
-	log.Println(g.currentView)
 	if g.currentView == world.ViewDay {
-		log.Println("start day")
 		g.sim.StartDay()
 	}
 
@@ -220,6 +223,18 @@ func (g *Game) drawDay() error {
 		g.setDayCell(a.X+1, a.Y, 'o')
 	}
 
+	// Draw labels.
+	drawText(17, 0, fmt.Sprintf("DAY %d", g.sim.Day))
+	drawText(8, 2, fmt.Sprintf("STOCK %d", g.sim.MakePretzels-g.sim.PretzelsSold))
+	drawText(24, 2, fmt.Sprintf("SOLD %d", g.sim.PretzelsSold))
+	if g.sim.Disaster != 0 {
+		label := disasterLabel(g.sim.Disaster)
+		drawText(20-len(label)/2, 12, label)
+
+		drawText(11, 14, "NO CUSTOMERS TODAY")
+		drawText(7, 17, "PRESS ENTER TO CONTINUE...")
+	}
+
 	g.textBuffer.Clear()
 	for y := range g.dayBuffer {
 		if y != 0 {
@@ -234,6 +249,29 @@ func (g *Game) refreshBuffer() error {
 	// TODO only do this when the view buffer or input buffer changes
 	// TODO fix trailing newline causing scroll bar to appear
 
+	if g.gameOver {
+		g.textBuffer.Clear()
+		g.textBuffer.Write([]byte(fmt.Sprintf(`                 DAY %d
+
+
+
+
+           YOU HAVE NO MONEY!
+
+          YOU ARE NOW HOMELESS!
+
+          THERE IS NO HOPE LEFT
+       IN YOUR EYES... ONLY PAIN!
+
+
+
+
+
+
+                GAME OVER`, g.sim.Day)))
+		return nil
+	}
+
 	if g.currentView == world.ViewDay {
 		return g.drawDay()
 	}
@@ -241,10 +279,11 @@ func (g *Game) refreshBuffer() error {
 	income := g.sim.PretzelsSold * g.sim.PretzelPrice
 	totalIncome := fmt.Sprintf("$%d.%02d", income/100, income%100)
 
-	totalExpenses := "$1.45"
+	expenses := (g.sim.MakePretzels * PretzelCost) + (g.sim.MakeSigns * SignCost)
+	totalExpenses := formatMoney(expenses)
 
-	profit := "$3.55"
-	assets := "$6.60"
+	profit := formatMoney(income - expenses)
+	assets := formatMoney(g.sim.Money)
 
 	viewBytes := viewText[g.currentView]
 	writeLines := g.viewTicks + 1
@@ -272,13 +311,13 @@ func (g *Game) refreshBuffer() error {
 	var lines [][]byte
 	switch g.currentView {
 	case world.ViewStartDayProduction1:
-		viewBytes = []byte(fmt.Sprintf(string(viewBytes), g.sim.Day))
+		viewBytes = []byte(fmt.Sprintf(string(viewBytes), g.sim.Day, formatMoney(g.sim.Money)))
 		lines = bytes.Split(viewBytes, []byte("\n"))
 	case world.ViewStartDayProduction2:
-		viewBytes = []byte(fmt.Sprintf(string(viewBytes), g.sim.Day, g.sim.MakePretzels))
+		viewBytes = []byte(fmt.Sprintf(string(viewBytes), g.sim.Day, formatMoney(g.sim.Money), g.sim.MakePretzels))
 		lines = bytes.Split(viewBytes, []byte("\n"))
 	case world.ViewStartDayProduction3:
-		viewBytes = []byte(fmt.Sprintf(string(viewBytes), g.sim.Day, g.sim.MakePretzels, g.sim.MakeSigns))
+		viewBytes = []byte(fmt.Sprintf(string(viewBytes), g.sim.Day, formatMoney(g.sim.Money), g.sim.MakePretzels, g.sim.MakeSigns))
 		lines = bytes.Split(viewBytes, []byte("\n"))
 	case world.ViewFinancialReport:
 		viewBytes = []byte(fmt.Sprintf(string(viewBytes), g.sim.Day, g.sim.PretzelsSold, formatCents(g.sim.PretzelPrice), totalIncome, g.sim.MakePretzels, g.sim.MakeSigns, totalExpenses, profit, assets))
@@ -331,6 +370,10 @@ func (g *Game) Update() error {
 		}
 	}
 
+	if g.gameOver {
+		return nil
+	}
+
 	// Handle user input.
 	if g.inputActive() {
 		err := etk.Update()
@@ -362,10 +405,21 @@ func (g *Game) Update() error {
 						return err
 					}
 				}
+				g.sim.DisasterAcknowledged = true
+
+				if g.sim.Money < PretzelCost {
+					g.gameOver = true
+				}
 			}
 			g.currentView++
 		}
 		g.viewTicks = 0
+
+		err := g.refreshBuffer()
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 
 	if g.currentView == world.ViewDay {
@@ -380,9 +434,13 @@ func (g *Game) Update() error {
 			}
 		}
 
-		if g.sim.DayFinished {
+		if g.sim.DayFinished && (g.sim.Disaster == 0 || g.sim.DisasterAcknowledged) {
 			g.currentView++
 			g.viewTicks = 0
+
+			if g.sim.Money < PretzelCost {
+				g.gameOver = true
+			}
 		}
 	}
 
@@ -408,4 +466,13 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 func (g *Game) Exit() {
 	os.Exit(0)
+}
+
+func formatMoney(v int) string {
+	var prefix string
+	if v < 0 {
+		prefix = "-"
+		v *= -1
+	}
+	return fmt.Sprintf("%s$%d.%02d", prefix, v/100, v%100)
 }

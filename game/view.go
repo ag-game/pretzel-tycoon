@@ -49,11 +49,19 @@ YOU WILL BEGIN WITH $4.20 CASH (ASSETS).
 	// viewStartDayProduction1
 	[]byte(`                 DAY %d
 
+
+              ASSETS %s
+
+
 HOW MANY PRETZELS ($0.15 EACH) DO YOU
 WISH TO MAKE ?`),
 
 	// viewStartDayProduction2
 	[]byte(`                 DAY %d
+
+
+              ASSETS %s
+
 
 HOW MANY PRETZELS ($0.15 EACH) DO YOU
 WISH TO MAKE ?%d
@@ -63,6 +71,10 @@ DO YOU WISH TO MAKE ?`),
 
 	// viewStartDayProduction3
 	[]byte(`                 DAY %d
+
+
+              ASSETS %s
+
 
 HOW MANY PRETZELS ($0.15 EACH) DO YOU
 WISH TO MAKE ?%d
