@@ -33,11 +33,7 @@ Run `~/go/bin/pretzel-tycoon` to play.
 
 Please share issues and suggestions [here](https://code.rocketnine.space/tslocum/pretzel-tycoon/issues).
 
-## Credits
-
-- [Trevor Slocum](https://rocketnine.space) - Game design and programming
-
 ## Dependencies
 
 - [ebitengine](https://github.com/hajimehoshi/ebiten) - Game engine
-- [etk](https://code.rocketnine.space/tslocum/etk) - Graphical user interface toolkit
+- [messeji](https://code.rocketnine.space/tslocum/messeji) - Text widgets

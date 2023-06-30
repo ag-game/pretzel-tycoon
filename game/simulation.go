@@ -14,10 +14,28 @@ type SimulationActor struct {
 }
 
 type Simulation struct {
+	Day int
+
 	Money            int
 	Actors           []*SimulationActor
 	DayFinished      bool
 	DayFinishedTicks int
+	PretzelsSold     int
+
+	MakePretzels int
+	MakeSigns    int
+
+	PretzelPrice int // In cents.
+}
+
+func NewSimulation() *Simulation {
+	return &Simulation{
+		Day: 1,
+
+		MakePretzels: -1,
+		MakeSigns:    -1,
+		PretzelPrice: -1,
+	}
 }
 
 func (s *Simulation) generateActors() {
@@ -42,6 +60,7 @@ func (s *Simulation) StartDay() {
 	s.Actors = s.Actors[:0]
 	s.DayFinished = false
 	s.DayFinishedTicks = 25
+	s.PretzelsSold = 0
 
 	s.generateActors()
 }
@@ -89,6 +108,8 @@ func (s *Simulation) Tick() error {
 
 		if a.X == tx && a.Y == ty {
 			if !a.TargetActive {
+				s.PretzelsSold++
+
 				a.TargetActive = true
 				a.WaitTicks = 100 + rand.Intn(150)
 				continue

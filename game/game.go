@@ -34,19 +34,9 @@ type Game struct {
 
 	dayBuffer [][]byte
 
-	day int
-
 	inputLetters bool // Whether to allow the user to input letters.
 
-	makePretzels     int // In dozens.
-	makePretzelsLast int
-	makeSigns        int
-	makeSignsLast    int
-
-	pretzelPrice     int // In cents.
-	pretzelPriceLast int
-
-	simulation *Simulation
+	sim *Simulation
 }
 
 func loadFont() font.Face {
@@ -77,16 +67,9 @@ func NewGame() (*Game, error) {
 	etk.Style.TextFont = loadFont()
 
 	g := &Game{
-		currentView:      world.StartingView,
-		day:              1,
-		makePretzels:     -1,
-		makePretzelsLast: -1,
-		makeSigns:        -1,
-		makeSignsLast:    -1,
-		pretzelPrice:     -1,
-		pretzelPriceLast: -1,
-		dayBuffer:        make([][]byte, 18),
-		simulation:       &Simulation{},
+		currentView: world.StartingView,
+		dayBuffer:   make([][]byte, 18),
+		sim:         NewSimulation(),
 	}
 	g.inputBuffer = etk.NewInput("", "", g.acceptInput)
 	g.textBuffer = etk.NewText("Hello world!")
@@ -122,35 +105,30 @@ func (g *Game) Layout(_, _ int) (screenWidth, screenHeight int) {
 }
 
 func (g *Game) inputActive() bool {
-	switch g.currentView {
-	case world.ViewStartDayProduction1:
-		return g.makePretzels == -1
-	case world.ViewStartDayProduction2:
-		return g.makeSigns == -1
-	case world.ViewStartDayProduction3:
-		return g.pretzelPrice == -1
+	for _, view := range world.InputViews {
+		if g.currentView == view {
+			return true
+		}
 	}
 	return false
 }
 
 func (g *Game) acceptInput(text string) (handled bool) {
 	if text == "" {
+		log.Println("blank", g.currentView)
 		switch g.currentView {
 		case world.ViewStartDayProduction1:
-			if g.makePretzelsLast == -1 {
+			if g.sim.MakePretzels == -1 {
 				return false
 			}
-			g.makePretzels = g.makePretzelsLast
 		case world.ViewStartDayProduction2:
-			if g.makeSignsLast == -1 {
+			if g.sim.MakeSigns == -1 {
 				return false
 			}
-			g.makeSigns = g.makeSignsLast
 		case world.ViewStartDayProduction3:
-			if g.pretzelPriceLast == -1 {
+			if g.sim.PretzelPrice == -1 {
 				return false
 			}
-			g.pretzelPrice = g.pretzelPriceLast
 		}
 	} else {
 		// TODO handle non-numeric input
@@ -160,27 +138,30 @@ func (g *Game) acceptInput(text string) (handled bool) {
 		}
 		switch g.currentView {
 		case world.ViewStartDayProduction1:
-			g.makePretzels = i
+			g.sim.MakePretzels = i
 		case world.ViewStartDayProduction2:
-			g.makeSigns = i
+			g.sim.MakeSigns = i
 		case world.ViewStartDayProduction3:
-			g.pretzelPrice = i
+			g.sim.PretzelPrice = i
 		}
 	}
+
+	log.Println("accept input:" + text)
 
 	g.currentView++
 	partialTransition := g.currentView == world.ViewStartDayProduction2 || g.currentView == world.ViewStartDayProduction3
 	if partialTransition {
 		viewBytes := viewText[g.currentView-1]
 		lines := bytes.Split(viewBytes, []byte("\n"))
-		g.viewTicks = len(lines) - 4
+		g.viewTicks = len(lines) - 2
 	} else {
 		g.viewTicks = 0
 	}
 
 	log.Println(g.currentView)
 	if g.currentView == world.ViewDay {
-		g.simulation.StartDay()
+		log.Println("start day")
+		g.sim.StartDay()
 	}
 
 	g.refreshBuffer()
@@ -234,7 +215,7 @@ func (g *Game) drawDay() error {
 	drawPretzelStand(12, 6)
 
 	// Draw actors.
-	for _, a := range g.simulation.Actors {
+	for _, a := range g.sim.Actors {
 		g.setDayCell(a.X, a.Y, 'o')
 		g.setDayCell(a.X+1, a.Y, 'o')
 	}
@@ -257,12 +238,9 @@ func (g *Game) refreshBuffer() error {
 		return g.drawDay()
 	}
 
-	pretzelsSold := 50
-	pretzelPrice := "$.10"
-	totalIncome := "$5.00"
+	income := g.sim.PretzelsSold * g.sim.PretzelPrice
+	totalIncome := fmt.Sprintf("$%d.%02d", income/100, income%100)
 
-	pretzelsMade := 50
-	signsMade := 3
 	totalExpenses := "$1.45"
 
 	profit := "$3.55"
@@ -286,20 +264,24 @@ func (g *Game) refreshBuffer() error {
 		}
 	}
 
+	formatCents := func(cents int) string {
+		return fmt.Sprintf("$%d.%02d", cents/100, cents%100)
+	}
+
 	// Format view.
 	var lines [][]byte
 	switch g.currentView {
 	case world.ViewStartDayProduction1:
-		viewBytes = []byte(fmt.Sprintf(string(viewBytes), g.day))
+		viewBytes = []byte(fmt.Sprintf(string(viewBytes), g.sim.Day))
 		lines = bytes.Split(viewBytes, []byte("\n"))
 	case world.ViewStartDayProduction2:
-		viewBytes = []byte(fmt.Sprintf(string(viewBytes), g.day, g.makePretzels))
+		viewBytes = []byte(fmt.Sprintf(string(viewBytes), g.sim.Day, g.sim.MakePretzels))
 		lines = bytes.Split(viewBytes, []byte("\n"))
 	case world.ViewStartDayProduction3:
-		viewBytes = []byte(fmt.Sprintf(string(viewBytes), g.day, g.makePretzels, g.makeSigns))
+		viewBytes = []byte(fmt.Sprintf(string(viewBytes), g.sim.Day, g.sim.MakePretzels, g.sim.MakeSigns))
 		lines = bytes.Split(viewBytes, []byte("\n"))
 	case world.ViewFinancialReport:
-		viewBytes = []byte(fmt.Sprintf(string(viewBytes), g.day, pretzelsSold, pretzelPrice, totalIncome, pretzelsMade, signsMade, totalExpenses, profit, assets))
+		viewBytes = []byte(fmt.Sprintf(string(viewBytes), g.sim.Day, g.sim.PretzelsSold, formatCents(g.sim.PretzelPrice), totalIncome, g.sim.MakePretzels, g.sim.MakeSigns, totalExpenses, profit, assets))
 		lines = bytes.Split(viewBytes, []byte("\n"))
 	default:
 		lines = bytes.Split(viewBytes, []byte("\n"))
@@ -325,18 +307,6 @@ func (g *Game) refreshBuffer() error {
 		g.textBuffer.Write(lines[i])
 		wrote++
 	}
-	return nil
-}
-
-func (g *Game) resetDay() error {
-	g.makePretzelsLast = g.makePretzels
-	g.makePretzels = -1
-
-	g.makeSignsLast = g.makeSigns
-	g.makeSigns = -1
-
-	g.pretzelPriceLast = g.pretzelPrice
-	g.pretzelPrice = -1
 	return nil
 }
 
@@ -381,9 +351,18 @@ func (g *Game) Update() error {
 		}
 	} else if inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeyKPEnter) || (g.currentView != world.ViewDay && inpututil.IsKeyJustPressed(ebiten.KeySpace)) {
 		if g.currentView == world.ViewFinancialReport {
-			g.resetDay()
+			g.sim.Day++
 			g.currentView = world.ViewStartDayProduction1
 		} else {
+			// Skip to end of day.
+			if g.currentView == world.ViewDay {
+				for !g.sim.DayFinished {
+					err := g.sim.Tick()
+					if err != nil {
+						return err
+					}
+				}
+			}
 			g.currentView++
 		}
 		g.viewTicks = 0
@@ -395,13 +374,13 @@ func (g *Game) Update() error {
 			numTicks = 4
 		}
 		for i := 0; i < numTicks; i++ {
-			err := g.simulation.Tick()
+			err := g.sim.Tick()
 			if err != nil {
 				return err
 			}
 		}
 
-		if g.simulation.DayFinished {
+		if g.sim.DayFinished {
 			g.currentView++
 			g.viewTicks = 0
 		}

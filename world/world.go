@@ -24,6 +24,12 @@ const (
 	ViewFinancialReport
 )
 
+var InputViews = []ViewType{
+	ViewStartDayProduction1,
+	ViewStartDayProduction2,
+	ViewStartDayProduction3,
+}
+
 var (
 	ScreenWidth  int
 	ScreenHeight int
